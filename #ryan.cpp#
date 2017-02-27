@@ -1,0 +1,185 @@
+//============================================================================
+// Name        : WavTest.cpp
+// Author      : Derrs
+// Version     :
+// Copyright   : Your copyright notice
+// Description : Hello World in C++, Ansi-style
+//============================================================================
+#include    <iostream>
+#include	<stdio.h>
+#include	<string.h>
+#include    <math.h>
+
+/* Include this header file to use functions from libsndfile. */
+#include <sndfile.h>
+
+
+using namespace std;
+
+/*	This will be the length of the buffer used to hold.frames while
+**	we process them.
+*/
+#define		BUFFER_LEN	1100024
+
+/* libsndfile can handle more than 6 channels but we'll restrict it to 2. */
+#define		MAX_CHANNELS	2
+
+/* Function prototype. */
+static void process_data (short *data, int count, int channels) ;
+
+
+int main (void)
+{	/* This is a buffer of double precision floating point values
+	** which will hold our data while we process it.
+	*/
+	static short data [BUFFER_LEN] ;
+
+	/* A SNDFILE is very much like a FILE in the Standard C library. The
+	** sf_open function return an SNDFILE* pointer when they successfully
+	** open the specified file.
+	*/
+	SNDFILE	*infile, *outfile ;
+
+	/* A pointer to an SF_INFO struct is passed to sf_open.
+	** On read, the library fills this struct with information about the fil
+e.
+	** On write, the struct must be filled in before calling sf_open.
+	*/
+	SF_INFO		sfinfo ;
+	int			readcount ;
+	const char	*infilename = "input1.wav" ;
+	const char	*outfilename = "output.wav" ;
+	double signal_max;
+
+	/* The SF_INFO struct must be initialized before using it.
+	*/
+	memset (&sfinfo, 0, sizeof (sfinfo));
+
+	cout <<  "Size of sfinfo = " << sizeof(sfinfo) << endl;
+
+	/* Here's where we open the input file. We pass sf_open the file name an
+d
+	** a pointer to an SF_INFO struct.
+	** On successful open, sf_open returns a SNDFILE* pointer which is usedfind the sndfile.h file.
+	** for all subsequent operations on that file.
+	** If an error occurs during sf_open, the function returns a NULL pointe
+r.
+	**
+	** If you are trying to open a raw headerless file you will need to set
+the
+	** format and channels fields of sfinfo before calling sf_open(). For
+	** instance to open a raw 16 bit stereo PCM file you would need the foll
+owing
+	** two lines:
+	**
+	**		sfinfo.format   = SF_FORMAT_RAW | SF_FORMAT_PCM_16 ;
+	**		sfinfo.channels = 2 ;
+	*/
+	if (! (infile = sf_open(infilename, SFM_READ, &sfinfo)))
+	{	/* Open failed so print an error message. */
+		printf ("Not able to open input file %s.\n", infilename) ;
+		/* Print the error message from libsndfile. */
+		puts (sf_strerror (NULL)) ;
+		return 1 ;
+		} ;
+
+	cout << "There are " << sfinfo.channels << " channels " << endl;
+	cout << "frames " << sfinfo.frames << endl;
+	cout << "samplerate " << sfinfo.samplerate << endl;
+	cout << "format " << sfinfo.format << endl;
+	cout << "sections " << sfinfo.sections << endl;
+	cout << "seekable " << sfinfo.seekable << endl;
+
+	sf_command (infile, SFC_CALC_SIGNAL_MAX, &signal_max, sizeof (signal_max)) ;
+	cout << "Signal MAX is " << signal_max << endl;
+
+
+	if (sfinfo.channels > MAX_CHANNELS)
+	{	printf ("Not able to process more than %d channels\n", MAX_CHANNELS) ;
+		return 1 ;
+		} ;
+	/* Open the output file. */
+	if (! (outfile = sf_open (outfilename, SFM_WRITE, &sfinfo)))
+	{	printf ("Not able to open output file %s.\n", outfilename) ;
+		puts (sf_strerror (NULL)) ;
+		return 1 ;
+		} ;
+
+	/* While there are.frames in the input file, read them, process
+	** them and write them to the  output file.
+	*/
+	while ((readcount = sf_read_short (infile, data, BUFFER_LEN)))
+	{
+		process_data (data, readcount, sfinfo.channels) ;
+		sf_write_short (outfile,  data, readcount) ;
+		} ;
+
+	/* Close input and output files. */
+	sf_close (infile) ;
+	sf_close (outfile) ;
+
+	return 0 ;
+} /* main */
+
+static void process_data (short *data, int count, int channels)
+{
+  double channel_gain [MAX_CHANNELS] = {3.5, 1};
+						       
+	int k, chan ;
+	short max = 0;
+	short min = 0;
+
+
+	/* Process the data here.
+	** If the soundfile contains more then 1 channel you need to take care o
+f
+	** the data interleaving youself.
+	** Current we just apply a channel dependant gain.
+	*/
+
+	for (chan = 0 ; chan < channels ; chan ++)
+	{
+		min, max = data[0];
+		for (k = chan ; k < count ; k+= channels)
+		{
+			data [k] *= channel_gain [chan] ;
+
+			if(k == 0)
+			{
+				min, max = data[k];
+			}
+			else if(data[k] > max)
+			{
+				max = data[k];
+			}
+			else if(data[k] < min)
+			{
+				min = data[k];
+			}
+
+			if(k < 10)
+			{
+				cout << "Sample Value = " << data[k] << " , Sample # " << k << endl;
+			}
+			if(k == count - 1)
+			{
+				cout << "The last sample is " << k << endl;
+			}
+//			clude	<stdio.h>
+/*
+			#include	<string.h>
+			#include    <math.h>
+
+			 Include this header file to use functions from libsndfile.
+			#include	<sndfile.h>
+			#include    <iostream>
+*/
+		}
+	}
+
+	cout << "The Maximum signed value = " << max << endl;//find the sndfile.h file.
+	cout << "The Minimum signed value = " << min << endl;
+
+	return;
+} /* process_data */
+
